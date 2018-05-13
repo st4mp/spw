@@ -7,19 +7,21 @@ import java.awt.event.KeyListener;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.Iterator;
-
+import javax.swing.JOptionPane;
 import javax.swing.Timer;
 
+import javafx.animation.Interpolator;
 
 public class GameEngine implements KeyListener, GameReporter{
 	GamePanel gp;
 		
-	private ArrayList<Enemy> enemies = new ArrayList<Enemy>();	
+	private ArrayList<Enemy> enemies = new ArrayList<Enemy>();
+	private ArrayList<Support> support = new ArrayList<Support>();
 	private SpaceShip v;	
 	
 	private Timer timer;
-	
 	private long score = 0;
+	private int state = 1;
 	private double difficulty = 0.1;
 	
 	public GameEngine(GamePanel gp, SpaceShip v) {
@@ -48,13 +50,23 @@ public class GameEngine implements KeyListener, GameReporter{
 		gp.sprites.add(e);
 		enemies.add(e);
 	}
-	
+
+	Support s;
+	public void generateSup(){
+			s = new Support((int)(Math.random()*390), (int)(Math.random()*200)+200);
+			gp.sprites.add(s);
+			support.add(s);
+	}
+
+
 	private void process(){
 		if(Math.random() < difficulty){
 			generateEnemy();
 		}
 		
 		Iterator<Enemy> e_iter = enemies.iterator();
+		Iterator<Support> s_iter = support.iterator();
+
 		while(e_iter.hasNext()){
 			Enemy e = e_iter.next();
 			e.proceed();
@@ -64,17 +76,41 @@ public class GameEngine implements KeyListener, GameReporter{
 				gp.sprites.remove(e);
 				score += 100;
 			}
+
+			if( getScore() > 1000 * state ){
+				
+				while(s_iter.hasNext()){
+					Support s = s_iter.next();
+					s.proceeds();
+					
+					if(!s.isAlives()){
+						s_iter.remove();
+						gp.sprites.remove(s);
+					}
+				}
+				generateSup();
+				difficulty += 0.001;
+				state++;
+			}
 		}
 		
 		gp.updateGameUI(this);
 		
 		Rectangle2D.Double vr = v.getRectangle();
-		Rectangle2D.Double er;
+		Rectangle2D.Double er, es;
 		for(Enemy e : enemies){
 			er = e.getRectangle();
 			if(er.intersects(vr)){
 				die();
 				return;
+			}
+		}
+
+		for(Support s : support){
+			es = s.getRectangle();
+			if(es.intersects(vr)){
+				gp.sprites.remove(s);
+				score += 250;
 			}
 		}
 	}
@@ -86,13 +122,16 @@ public class GameEngine implements KeyListener, GameReporter{
 	void controlVehicle(KeyEvent e) {
 		switch (e.getKeyCode()) {
 		case KeyEvent.VK_LEFT:
-			v.move(-1);
+			v.moveX(-1);
 			break;
 		case KeyEvent.VK_RIGHT:
-			v.move(1);
+			v.moveX(1);
 			break;
-		case KeyEvent.VK_D:
-			difficulty += 0.1;
+		case KeyEvent.VK_UP:
+			v.moveY(-1);
+			break;
+		case KeyEvent.VK_DOWN:
+			v.moveY(1);
 			break;
 		}
 	}
@@ -100,11 +139,10 @@ public class GameEngine implements KeyListener, GameReporter{
 	public long getScore(){
 		return score;
 	}
-	
+
 	@Override
 	public void keyPressed(KeyEvent e) {
 		controlVehicle(e);
-		
 	}
 
 	@Override
